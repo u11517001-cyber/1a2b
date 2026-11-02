@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1A2B 數字猜謎遊戲</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti 慶祝特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-mono font-bold text-xl shadow-md shadow-indigo-100">
+                    A|B
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">1A2B 數字猜謎</h1>
+                    <p class="text-xs text-slate-500">教學測試與邏輯推理工具</p>
+                </div>
+            </div>
+            
+            <button id="new-game-btn" class="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold px-4 py-2 rounded-xl transition duration-200 active:scale-95 text-sm">
+                <i class="fa-solid fa-rotate"></i>
+                <span>重新開始 / 開新局</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+
+        <!-- Left Column: Input and Debug Section -->
+        <div class="md:col-span-5 flex flex-col gap-5">
+            
+            <!-- Game Status & Control Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                
+                <!-- Debug Mode Toggle Container -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <label for="debug-toggle" class="flex items-center gap-2 cursor-pointer select-none">
+                        <div class="relative">
+                            <input type="checkbox" id="debug-toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bug text-amber-500"></i> 除錯模式
+                        </span>
+                    </label>
+                    <span id="debug-status-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-medium">
+                        關閉中
+                    </span>
+                </div>
+
+                <!-- Answer Display Box (Debug or Won state) -->
+                <div class="bg-slate-50 rounded-xl p-4 text-center border border-dashed border-slate-200">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">本局謎底 (Secret Answer)</div>
+                    <div id="secret-answer-display" class="font-mono text-3xl font-extrabold tracking-widest text-slate-300">
+                        ????
+                    </div>
+                </div>
+
+                <!-- Game Stats -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div class="bg-indigo-50/50 rounded-xl p-3 text-center border border-indigo-100">
+                        <div class="text-xs text-slate-500 mb-0.5">有效猜測次數</div>
+                        <div id="guess-count" class="text-2xl font-bold font-mono text-indigo-600">0</div>
+                    </div>
+                    <div class="bg-emerald-50/50 rounded-xl p-3 text-center border border-emerald-100">
+                        <div class="text-xs text-slate-500 mb-0.5">當前狀態</div>
+                        <div id="game-status-text" class="text-sm font-bold text-emerald-600 mt-1">進行中</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Guess Input Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-keyboard text-indigo-500"></i> 輸入猜測數字
+                </h2>
+                <p class="text-xs text-slate-500 -mt-2">包含 0~9 中 4 個不重複數字（例如：0123）</p>
+
+                <!-- Toast Alert Notification Area -->
+                <div id="alert-box" class="hidden text-xs bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-xl items-center gap-2 transition-all">
+                    <i class="fa-solid fa-circle-exclamation text-rose-500 text-sm"></i>
+                    <span id="alert-msg">請輸入4位不重複數字</span>
+                </div>
+
+                <form id="guess-form" onsubmit="return false;" class="flex flex-col gap-3">
+                    <div class="relative">
+                        <input type="text" 
+                               id="guess-input" 
+                               maxlength="4" 
+                               placeholder="請輸入 4 位數字" 
+                               autocomplete="off"
+                               class="w-full bg-slate-50 border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-800 font-mono text-2xl tracking-widest text-center py-3 rounded-xl outline-none transition duration-150 uppercase" />
+                    </div>
+
+                    <button type="submit" 
+                            id="submit-guess-btn"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md shadow-indigo-200 transition duration-150 active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>送出猜測</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Game Rules Note -->
+            <div class="bg-slate-100/70 p-4 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1.5">
+                <div class="font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info text-indigo-500"></i> 遊戲規則提示
+                </div>
+                <p><span class="font-bold text-indigo-600">A</span>：數字正確且位置正確</p>
+                <p><span class="font-bold text-amber-600">B</span>：數字正確但位置不同</p>
+                <p>達成 <span class="font-bold text-emerald-600">4A0B</span> 即獲得勝利！</p>
+            </div>
+        </div>
+
+        <!-- Right Column: Guess History -->
+        <div class="md:col-span-7 flex flex-col">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col min-h-[420px]">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-2">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-list-ol text-indigo-500"></i> 猜測歷史紀錄
+                    </h2>
+                    <span id="history-count-badge" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">
+                        共 0 筆紀錄
+                    </span>
+                </div>
+
+                <!-- History List Container -->
+                <div class="flex-1 overflow-y-auto pr-1 max-h-[480px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-xs font-semibold text-slate-400 uppercase border-b border-slate-100">
+                                <th class="py-2.5 px-3"># 次數</th>
+                                <th class="py-2.5 px-3">猜測數字</th>
+                                <th class="py-2.5 px-3">結果 (A / B)</th>
+                                <th class="py-2.5 px-3 text-right">判定</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-slate-100 text-sm">
+                            <!-- JS將動態渲染歷程數據 -->
+                        </tbody>
+                    </table>
+
+                    <!-- Empty State -->
+                    <div id="empty-history" class="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
+                        <i class="fa-solid fa-inbox text-4xl mb-1 text-slate-300"></i>
+                        <p class="text-sm">尚無猜測紀錄，請在左側輸入數字！</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+        1A2B 數字猜謎互動教學展示 &copy; 2026
+    </footer>
+
+    <!-- Game Logic Script -->
+    <script>
+        // --- 遊戲全域狀態 ---
+        let secretAnswer = "";       // 當前解答（4位不重複數字字串）
+        let guessHistory = [];       // 猜測紀錄數據庫 [{ attempt: 1, guess: '0123', a: 1, b: 2 }]
+        let isDebugMode = false;     // 除錯模式開關（預設 false）
+        let isGameOver = false;      // 遊戲是否結束
+
+        // --- DOM 元素引用 ---
+        const debugToggle = document.getElementById('debug-toggle');
+        const debugStatusBadge = document.getElementById('debug-status-badge');
+        const secretAnswerDisplay = document.getElementById('secret-answer-display');
+        const guessInput = document.getElementById('guess-input');
+        const guessForm = document.getElementById('guess-form');
+        const submitGuessBtn = document.getElementById('submit-guess-btn');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const alertBox = document.getElementById('alert-box');
+        const alertMsg = document.getElementById('alert-msg');
+        const historyTbody = document.getElementById('history-tbody');
+        const emptyHistory = document.getElementById('empty-history');
+        const guessCountDisplay = document.getElementById('guess-count');
+        const gameStatusText = document.getElementById('game-status-text');
+        const historyCountBadge = document.getElementById('history-count-badge');
+
+        // --- 初始化遊戲 ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initGame();
+        });
+
+        // 啟動新一局遊戲
+        function initGame() {
+            // 1. 生成新謎底
+            secretAnswer = generateSecretAnswer();
+            
+            // 2. 清空遊戲狀態
+            guessHistory = [];
+            isGameOver = false;
+
+            // 3. 預設關閉除錯模式
+            isDebugMode = false;
+            debugToggle.checked = false;
+
+            // 4. 重置 UI 介面
+            guessInput.value = '';
+            guessInput.disabled = false;
+            submitGuessBtn.disabled = false;
+            submitGuessBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            hideAlert();
+
+            gameStatusText.textContent = '進行中';
+            gameStatusText.className = 'text-sm font-bold text-emerald-600 mt-1';
+
+            updateDebugUI();
+            renderHistory();
+            updateStats();
+
+            console.log("新一局生成完畢，解答為：", secretAnswer); // 供開發偵錯
+        }
+
+        // 生成 4 個不重複數字的字串（包含 0 開頭）
+        function generateSecretAnswer() {
+            const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+            let result = '';
+            for (let i = 0; i < 4; i++) {
+                const randomIndex = Math.floor(Math.random() * digits.length);
+                result += digits[randomIndex];
+                digits.splice(randomIndex, 1); // 避免重複
+            }
+            return result;
+        }
+
+        // --- 除錯模式開關切換事件 ---
+        debugToggle.addEventListener('change', (e) => {
+            isDebugMode = e.target.checked;
+            updateDebugUI();
+        });
+
+        // 更新除錯模式 UI（不影響遊戲進行狀態與資料）
+        function updateDebugUI() {
+            if (isDebugMode) {
+                debugStatusBadge.textContent = '已開啟';
+                debugStatusBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-bold';
+                
+                // 顯示真實解答
+                secretAnswerDisplay.textContent = secretAnswer;
+                secretAnswerDisplay.className = 'font-mono text-3xl font-extrabold tracking-widest text-amber-600 animate-pulse';
+            } else {
+                debugStatusBadge.textContent = '關閉中';
+                debugStatusBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-medium';
+                
+                // 若遊戲已結束則維持顯示答案，否則隱藏
+                if (isGameOver) {
+                    secretAnswerDisplay.textContent = secretAnswer;
+                    secretAnswerDisplay.className = 'font-mono text-3xl font-extrabold tracking-widest text-emerald-600';
+                } else {
+                    secretAnswerDisplay.textContent = '????';
+                    secretAnswerDisplay.className = 'font-mono text-3xl font-extrabold tracking-widest text-slate-300';
+                }
+            }
+        }
+
+        // --- 輸入驗證與猜測提交 ---
+        guessForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (isGameOver) return;
+
+            const val = guessInput.value.trim();
+
+            // 驗證輸入合法性
+            const validationError = validateInput(val);
+            if (validationError) {
+                showAlert(validationError);
+                return; // 不計入猜測次數
+            }
+
+            // 驗證通過，隱藏警告提示
+            hideAlert();
+
+            // 計算 幾A幾B
+            const result = checkAB(val, secretAnswer);
+
+            // 寫入紀錄
+            guessHistory.push({
+                attempt: guessHistory.length + 1,
+                guess: val,
+                a: result.a,
+                b: result.b
+            });
+
+            // 清空輸入框
+            guessInput.value = '';
+
+            // 更新畫面
+            renderHistory();
+            updateStats();
+
+            // 判斷是否勝利 (4A0B)
+            if (result.a === 4) {
+                handleWin();
+            }
+        });
+
+        // 輸入內容合法性檢查
+        function validateInput(val) {
+            if (!val) {
+                return "請輸入 4 位數字！";
+            }
+            if (!/^\d+$/.test(val)) {
+                return "格式錯誤！請僅輸入純數字。";
+            }
+            if (val.length !== 4) {
+                return `長度不符合！必須剛好 4 位數（當前為 ${val.length} 位）。`;
+            }
+            // 檢查重複數字
+            const uniqueDigits = new Set(val.split(''));
+            if (uniqueDigits.size !== 4) {
+                return "數字不可重複！請輸入 4 個不同的數字。";
+            }
+            return null; // 無錯誤
+        }
+
+        // 計算 A 與 B 數量
+        function checkAB(guess, target) {
+            let a = 0;
+            let b = 0;
+            
+            for (let i = 0; i < 4; i++) {
+                if (guess[i] === target[i]) {
+                    a++;
+                } else if (target.includes(guess[i])) {
+                    b++;
+                }
+            }
+            return { a, b };
+        }
+
+        // 處理遊戲勝利
+        function handleWin() {
+            isGameOver = true;
+            gameStatusText.textContent = '🎉 勝利通關！';
+            gameStatusText.className = 'text-sm font-bold text-indigo-600 mt-1';
+
+            // 禁用輸入
+            guessInput.disabled = true;
+            submitGuessBtn.disabled = true;
+            submitGuessBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            // 顯示真實答案
+            secretAnswerDisplay.textContent = secretAnswer;
+            secretAnswerDisplay.className = 'font-mono text-3xl font-extrabold tracking-widest text-emerald-600';
+
+            // 觸發彩色紙屑特效
+            fireConfetti();
+        }
+
+        // 五彩紙屑動畫
+        function fireConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // --- 渲染與UI更新輔助函式 ---
+
+        function renderHistory() {
+            if (guessHistory.length === 0) {
+                emptyHistory.classList.remove('hidden');
+                historyTbody.innerHTML = '';
+                return;
+            }
+
+            emptyHistory.classList.add('hidden');
+            
+            // 反轉紀錄，讓最新猜測顯示在最上方
+            const reversed = [...guessHistory].reverse();
+            
+            historyTbody.innerHTML = reversed.map(item => {
+                const isWin = item.a === 4;
+                const rowBg = isWin ? 'bg-emerald-50/70' : 'hover:bg-slate-50/80';
+                
+                return `
+                    <tr class="transition-colors ${rowBg}">
+                        <td class="py-3 px-3 font-mono text-slate-400">#${item.attempt}</td>
+                        <td class="py-3 px-3 font-mono font-bold text-slate-800 tracking-wider text-base">${item.guess}</td>
+                        <td class="py-3 px-3">
+                            <div class="flex items-center gap-1.5 font-mono font-bold">
+                                <span class="px-2 py-0.5 rounded-md ${item.a > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}">
+                                    ${item.a}A
+                                </span>
+                                <span class="px-2 py-0.5 rounded-md ${item.b > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}">
+                                    ${item.b}B
+                                </span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-3 text-right">
+                            ${isWin 
+                                ? `<span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700"><i class="fa-solid fa-trophy"></i> 答對了</span>` 
+                                : `<span class="text-xs text-slate-400">繼續加油</span>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            guessCountDisplay.textContent = guessHistory.length;
+            historyCountBadge.textContent = `共 ${guessHistory.length} 筆紀錄`;
+        }
+
+        function showAlert(msg) {
+            alertMsg.textContent = msg;
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('flex');
+        }
+
+        function hideAlert() {
+            alertBox.classList.add('hidden');
+            alertBox.classList.remove('flex');
+        }
+
+        // 新開局按鈕事件
+        newGameBtn.addEventListener('click', () => {
+            initGame();
+        });
+
+        // 自動過濾非數字輸入（即時輸入反饋）
+        guessInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^\d]/g, '');
+        });
+    </script>
+</body>
+</html>
